@@ -1,3 +1,9 @@
+// Copyrigh 2018 Rustam Gilyazov. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Package siebns currently only allows fixing the encoded file size
+// in Siebel Gateway Naming file after making manual modifications to it.
 package siebns
 
 import (
@@ -24,21 +30,24 @@ type NSFixer interface {
 type NSFile struct {
 	Name             string   // filename and path
 	Size             int64    // real file size
+	CorrectionNeeded bool     // true if checksum is invalid
 	fmtUnicode       bool     // true if file has BOM
 	fmtDos           bool     // true if file has dos line endings
 	fmtLittleEndian  bool     // true if file is little-endian (x86)
-	CorrectionNeeded bool     // true if checksum is invalid
 	offsetHeader     byte     // header offset
 	offsetChecksum   int64    // checksum value offset
 	offsetData       int      // actual data offset
 	f                *os.File // file handle
 }
 
+// Error interface to output errors.
 func (e NSFileError) Error() string {
 	return fmt.Sprintf("Error: %s", string(e))
 }
 
-//FixSize fixes the size in header
+// FixSize fixes the size in header regardless of whether
+// NSFile.CorrectionNeeded is true or false.  Sets NSFile.CorrectionNeeded to
+// false
 func (ns *NSFile) FixSize() (int, error) {
 	buffer := make([]byte, 12)
 	ns.f.ReadAt(buffer, ns.offsetChecksum)
