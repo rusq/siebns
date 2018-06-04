@@ -26,14 +26,19 @@ type NSFixer interface {
 	Close()
 }
 
+// Format Constants
+const (
+	FmtIsDOS          = 1 << iota //file has dos line endings
+	FmtIsUnicode                  //file has BOM
+	FmtIsLittleEndian             //file is little-endian (x86)
+)
+
 // NSFile Name Server File descriptor
 type NSFile struct {
 	Name             string   // filename and path
 	Size             int64    // real file size
 	CorrectionNeeded bool     // true if checksum is invalid
-	fmtUnicode       bool     // true if file has BOM
-	fmtDos           bool     // true if file has dos line endings
-	fmtLittleEndian  bool     // true if file is little-endian (x86)
+	formatFlags      int      // uses fmt* constants
 	offsetHeader     byte     // header offset
 	offsetChecksum   int64    // checksum value offset
 	offsetData       int      // actual data offset
@@ -121,8 +126,7 @@ func decodeSize(b []byte) (int64, bool, error) {
 
 func (ns *NSFile) parseHeader() error {
 	ns.offsetHeader = 0
-	ns.fmtDos = false
-	ns.fmtUnicode = false
+	ns.formatFlags = 0
 	ns.CorrectionNeeded = false
 	currentPos := 0
 
@@ -137,7 +141,7 @@ func (ns *NSFile) parseHeader() error {
 
 	// unicode detection
 	if line[0] == 0xef && line[1] == 0xbb && line[2] == 0xbf {
-		ns.fmtUnicode = true
+		ns.formatFlags |= FmtIsUnicode
 		ns.offsetHeader = 3
 	}
 	// signature
@@ -146,7 +150,7 @@ func (ns *NSFile) parseHeader() error {
 	}
 	// line endings
 	if line[len(line)-2] == '\r' {
-		ns.fmtDos = true
+		ns.formatFlags |= FmtIsDOS
 	}
 
 	// skip 2 lines and read the base64 value
@@ -160,12 +164,20 @@ func (ns *NSFile) parseHeader() error {
 
 	ns.offsetChecksum = int64(currentPos)
 	line, err = reader.ReadBytes('\n')
-	if (ns.fmtDos && len(line) != 27) || (!ns.fmtDos && len(line) != 26) {
-		return NSFileError("Checksum part is corrupt.  Please fix it manually by\nopening the file in the editor and deleting data from line 4 (leaving the\nline 4 empty).")
+	if ((ns.formatFlags&FmtIsDOS != 0) && len(line) != 27) ||
+		((ns.formatFlags&FmtIsDOS == 0) && len(line) != 26) {
+		return NSFileError("Checksum part is corrupt.  Please fix it " +
+			"manually by\nopening the file in the editor and deleting " +
+			"data from line 4 (leaving the\nline 4 empty).")
 	}
 
 	var base64Size int64
-	base64Size, ns.fmtLittleEndian, err = decodeSize(line)
+	base64Size, bLittleEndian, err := decodeSize(line)
+	if bLittleEndian {
+		ns.formatFlags |= FmtIsLittleEndian
+	} else {
+		ns.formatFlags = ns.formatFlags &^ FmtIsLittleEndian
+	}
 	if base64Size != ns.Size || err != nil {
 		ns.CorrectionNeeded = true
 	}
@@ -180,11 +192,12 @@ func (ns *NSFile) encodeSize() ([]byte, error) {
 	}
 	buf := new(bytes.Buffer)
 
-	if ns.fmtLittleEndian {
-		err = binary.Write(buf, binary.LittleEndian, ns.Size)
-	} else {
-		err = binary.Write(buf, binary.BigEndian, ns.Size)
+	var endianness binary.ByteOrder = binary.LittleEndian
+
+	if ns.formatFlags&FmtIsLittleEndian == 0 {
+		endianness = binary.BigEndian
 	}
+	err = binary.Write(buf, endianness, ns.Size)
 	if err != nil {
 		return nil, err
 	}

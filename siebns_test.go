@@ -76,7 +76,11 @@ func TestEncode(t *testing.T) {
 	ns := NSFile{}
 	for i, v := range testSet {
 		ns.Size = v.size
-		ns.fmtLittleEndian = v.isLittleEndian
+		if v.isLittleEndian {
+			ns.formatFlags |= FmtIsLittleEndian
+		} else {
+			ns.formatFlags = ns.formatFlags &^ FmtIsLittleEndian
+		}
 		encoded, err := ns.encodeSize()
 		if err != nil {
 			t.Errorf("Item %d: Got error: %v", i, err)
@@ -104,13 +108,10 @@ func TestParseHeader(t *testing.T) {
 	if !ns.CorrectionNeeded {
 		t.Error("CorrectionNeeded invalid")
 	}
-	if ns.fmtDos {
+	if ns.formatFlags&FmtIsDOS == 1 {
 		t.Error("fmtDos invalid")
 	}
-	if ns.fmtUnicode {
-		t.Error("fmtUnicode invalid")
-	}
-	if ns.fmtUnicode {
+	if ns.formatFlags&FmtIsUnicode == 1 {
 		t.Error("fmtUnicode invalid")
 	}
 	if ns.offsetHeader != 0 {
