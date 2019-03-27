@@ -9,16 +9,14 @@ It provides the NSFile structure and member functions to allow loading and
 fixing the aforementioned files.
 
 Example::
-    
-  var ns = siebns.NSFile{}
 
-  err := ns.Load("siebns.dat")
+  ns,err := siebns.Open("siebns.dat")
   if err != nil {
       log.Fatalf("%s", err)
   }
   defer ns.Close()
 
-  if ns.CorrectionNeeded {
+  if !ns.IsHeaderCorrect() {
       wrote, err := ns.FixSize()
       if err != nil {
           log.Fatalf("Error writing to file:  %s\n", err)
