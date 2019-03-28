@@ -23,7 +23,7 @@ func main() {
 	}
 	defer ns.Close()
 
-	if !ns.IsHeaderCorrect() {
+	if ns.IsHeaderCorrect() {
 		log.Printf("file %s:  OK:  no correction needed.\n", ns.Name())
 		return
 	}
