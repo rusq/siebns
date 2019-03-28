@@ -2,6 +2,11 @@
 siebns Package
 ==============
 
+.. image:: https://travis-ci.org/rusq/siebns.svg?branch=master
+    :target: https://travis-ci.org/rusq/siebns
+.. image:: https://codecov.io/gh/rusq/siebns/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/rusq/siebns
+
 Package siebns currently only allows fixing the encoded file size in Oracle
 `Siebel CRM`_ Gateway Naming file after making manual modifications to it.
 
